@@ -44,10 +44,28 @@ def main():
     gs = chess.GameState()
     load_images()
     run = True
+    square_selected = ()
+    players_clicks = []
     while run:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                location = pygame.mouse.get_pos()
+                col = location[0] // square_size
+                row = location[1] // square_size
+                if square_selected == (row, col):   # user clicked same square twice
+                    square_selected = ()
+                    players_clicks = []
+                else:
+                    square_selected = (row, col)
+                    players_clicks.append(square_selected)
+                if len(players_clicks) == 2:    #   player may have made a valid move
+                    move = chess.Move(players_clicks[0], players_clicks[1], gs.board)
+                    print(move.get_chess_notation())
+                    gs.make_move(move)
+                    square_selected = ()
+                    players_clicks = []
         draw_game_state(screen, gs)
         clock.tick(FPS)
         pygame.display.flip()
