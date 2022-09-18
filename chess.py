@@ -12,6 +12,8 @@ class GameState:
                  ]
         self.white_to_move = True
         self.move_log = []
+        self.moves_functions = {"P": self.get_pawn_moves, "R": self.get_rook_moves, "B": self.get_bishop_moves,
+                                "N": self.get_knight_moves, "Q": self.get_queen_moves, "K": self.get_king_moves}
 
     def make_move(self,  move):
         self.board[move.start_row][move.start_col] = "--"
@@ -50,13 +52,35 @@ class GameState:
                     moves.append(Move((r, c), (r + 1, c), self.board))
                     if r == 1 and self.board[r + 2][c] == "--":
                         moves.append(Move((r, c), (r + 2, c), self.board))
-                    if c < 7 and self.board[r + 1][c + 1][0] == "w":
-                        moves.append(Move((r, c), (r + 1, c + 1), self.board))
-                    if c > 0 and self.board[r + 1][c - 1][0] == "w":
-                        moves.append(Move((r, c), (r + 1, c - 1), self.board))
+                if c < 7 and self.board[r + 1][c + 1][0] == "w":
+                    moves.append(Move((r, c), (r + 1, c + 1), self.board))
+                if c > 0 and self.board[r + 1][c - 1][0] == "w":
+                    moves.append(Move((r, c), (r + 1, c - 1), self.board))
 
     def get_knight_moves(self, r, c, color, moves):
-        pass
+        if r > 1:   # up moves
+            if c > 0 and self.board[r - 2][c - 1][0] != color:
+                moves.append(Move((r, c), (r - 2, c - 1), self.board))
+            if c < 7 and self.board[r - 2][c + 1][0] != color:
+                moves.append(Move((r, c), (r - 2, c - 1), self.board))
+        if r < 6:   # down moves
+            if c > 0 and self.board[r + 2][c - 1][0] != color:
+                moves.append(Move((r, c), (r + 2, c - 1), self.board))
+            if c < 7 and self.board[r + 2][c + 1][0] != color:
+                moves.append(Move((r, c), (r + 2, c - 1), self.board))
+        if c > 1:   # left moves
+            if r < 7 and self.board[r + 1][c - 2][0] != color:
+                moves.append(Move((r, c), (r - 1, c - 2), self.board))
+            if r > 0 and self.board[r - 1][c - 2][0] != color:
+                moves.append(Move((r, c), (r - 1, c - 2), self.board))
+        if c < 6:   # left moves
+            if r < 7 and self.board[r + 1][c + 2][0] != color:
+                moves.append(Move((r, c), (r - 1, c + 2), self.board))
+            if r > 0 and self.board[r - 1][c + 2][0] != color:
+                moves.append(Move((r, c), (r - 1, c + 2), self.board))
+
+
+
 
     def get_bishop_moves(self, r, c, color, moves):
         pass
@@ -76,18 +100,7 @@ class GameState:
             for c in range(len(self.board[r])):
                 piece_type, piece_color = self.board[r][c][1], self.board[r][c][0]
                 if(piece_color == "w" and self.white_to_move) or (piece_color == "b" and not self.white_to_move):
-                    if piece_type == "P":
-                        self.get_pawn_moves(r, c, piece_color, moves)
-                    elif piece_type == "R":
-                        self.get_rook_moves(r, c, piece_color, moves)
-                    elif piece_type == "Q":
-                        self.get_queen_moves(r, c, piece_color, moves)
-                    elif piece_type == "K":
-                        self.get_king_moves(r, c, piece_color, moves)
-                    elif piece_type == "B":
-                        self.get_bishop_moves(r, c, piece_color, moves)
-                    elif piece_type == "N":
-                        self.get_knight_moves(r, c, piece_color, moves)
+                    self.moves_functions[piece_type](r, c, piece_color, moves)
         return moves
 
     def get_valid_moves(self):
@@ -101,7 +114,6 @@ class Move:
     cols_to_files = {v: k for k, v in files_to_cols.items()}
 
     def __init__(self, start_square, end_square, board):
-        print(start_square, end_square)
         self.start_row = start_square[0]
         self.start_col = start_square[1]
         self.end_row = end_square[0]
@@ -113,11 +125,14 @@ class Move:
         return self.cols_to_files[col] + self.rows_to_ranks[row]
 
     def get_chess_notation(self):
+        if self.piece_captured != "--":
+            return self.get_file_rank(self.start_row, self.start_col) + "x" + self.get_file_rank(self.end_row, self.end_col)
         return self.get_file_rank(self.start_row, self.start_col) + self.get_file_rank(self.end_row, self.end_col)
 
     def __eq__(self, other):
         if isinstance(other, Move):
-            return self.start_row == other.start_row and self.start_col == other.start_col and self.end_row == other.end_row and self.end_col == other.end_col
+            return self.start_row == other.start_row and self.start_col == other.start_col\
+                   and self.end_row == other.end_row and self.end_col == other.end_col
         return False
 
 
