@@ -46,6 +46,8 @@ def main():
     run = True
     square_selected = ()
     players_clicks = []
+    valid_moves = gs.get_valid_moves()
+    move_made = False
     while run:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -57,15 +59,28 @@ def main():
                 if square_selected == (row, col):   # user clicked same square twice
                     square_selected = ()
                     players_clicks = []
+                elif gs.board[row][col] == "--" and len(players_clicks) == 0: #   user first click is empty square
+                    pass
                 else:
                     square_selected = (row, col)
                     players_clicks.append(square_selected)
                 if len(players_clicks) == 2:    #   player may have made a valid move
                     move = chess.Move(players_clicks[0], players_clicks[1], gs.board)
-                    print(move.get_chess_notation())
-                    gs.make_move(move)
+                    if move in valid_moves:
+                        print(move.get_chess_notation())
+                        gs.make_move(move)
+                        move_made = True
                     square_selected = ()
                     players_clicks = []
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_z:
+                    gs.undo_move()
+                    move_made = True
+
+        if move_made:
+            valid_moves = gs.get_valid_moves()
+            move_made = False
+
         draw_game_state(screen, gs)
         clock.tick(FPS)
         pygame.display.flip()
