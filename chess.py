@@ -62,15 +62,15 @@ class GameState:
             if c > 0 and self.board[r - 2][c - 1][0] != color:
                 moves.append(Move((r, c), (r - 2, c - 1), self.board))
             if c < 7 and self.board[r - 2][c + 1][0] != color:
-                moves.append(Move((r, c), (r - 2, c - 1), self.board))
+                moves.append(Move((r, c), (r - 2, c + 1), self.board))
         if r < 6:   # down moves
             if c > 0 and self.board[r + 2][c - 1][0] != color:
                 moves.append(Move((r, c), (r + 2, c - 1), self.board))
             if c < 7 and self.board[r + 2][c + 1][0] != color:
-                moves.append(Move((r, c), (r + 2, c - 1), self.board))
+                moves.append(Move((r, c), (r + 2, c + 1), self.board))
         if c > 1:   # left moves
             if r < 7 and self.board[r + 1][c - 2][0] != color:
-                moves.append(Move((r, c), (r - 1, c - 2), self.board))
+                moves.append(Move((r, c), (r + 1, c - 2), self.board))
             if r > 0 and self.board[r - 1][c - 2][0] != color:
                 moves.append(Move((r, c), (r - 1, c - 2), self.board))
         if c < 6:   # left moves
@@ -79,20 +79,124 @@ class GameState:
             if r > 0 and self.board[r - 1][c + 2][0] != color:
                 moves.append(Move((r, c), (r - 1, c + 2), self.board))
 
-
-
-
     def get_bishop_moves(self, r, c, color, moves):
-        pass
+        row, col = r - 1, c - 1
+        stop = False
+        while not stop and row >= 0 and col >= 0:   # up left moves
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                row -= 1
+                col -= 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c), (row, col), self.board))
+                stop = True
+            else:
+                stop = True
+        row, col = r - 1, c + 1
+        stop = False
+        while not stop and row >= 0 and col <= 7:   # up right moves
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                row -= 1
+                col += 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c), (row, col), self.board))
+                stop = True
+            else:
+                stop = True
+        row, col = r + 1, c + 1
+        stop = False
+        while not stop and row <= 7 and col <= 7:   # down left moves
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                row += 1
+                col += 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c), (row, col), self.board))
+                stop = True
+            else:
+                stop = True
+        row, col = r + 1, c - 1
+        stop = False
+        while not stop and row <= 7 and col <= 7:  # down left moves
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                row += 1
+                col -= 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c), (row, col), self.board))
+                stop = True
+            else:
+                stop = True
 
     def get_rook_moves(self, r, c, color, moves):
-        pass
-
+        row, col = r - 1, c
+        stop = False
+        while not stop and row >= 0:  # up moves
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                row -= 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c),(row, col), self.board))
+                stop = True
+            else:
+                stop = True
+        row, col = r + 1, c     # down moves
+        stop = False
+        while not stop and row <= 7:
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                row += 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c), (row, col), self.board))
+                stop = True
+            else:
+                stop = True
+        row, col = r, c - 1
+        stop = False
+        while not stop and c >= 0:
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                col -= 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c), (row, col), self.board))
+                stop = True
+            else:
+                stop = True
+        row, col = r, c + 1
+        stop = False
+        while not stop and col <= 7:
+            if self.board[row][col] == "--":
+                moves.append(Move((r, c), (row, col), self.board))
+                col += 1
+            elif self.board[row][col][0] != color:
+                moves.append(Move((r, c), (row, col), self.board))
+                stop = True
+            else:
+                stop = True
     def get_queen_moves(self, r, c, color, moves):
-        pass
+        self.get_rook_moves(r, c, color, moves)
+        self.get_bishop_moves(r, c, color, moves)
 
-    def get_king_moves(self, r, c, color, moves):
-        pass
+    def get_king_moves(self, r, c, color, moves):   # TODO: add castling
+        if r > 0:   # up moves
+            if c > 0 and self.board[r - 1][c - 1][0] != color:
+                moves.append(Move((r, c), (r - 1, c - 1), self.board))
+            if self.board[r - 1][c][0] != color:
+                moves.append(Move((r, c), (r - 1, c), self.board))
+            if c < 7 and self.board[r - 1][c + 1][0] != color:
+                moves.append(Move((r, c), (r - 1, c + 1), self.board))
+        if r < 7:   # down moves
+            if c > 0 and self.board[r + 1][c - 1][0] != color:
+                moves.append(Move((r, c), (r + 1, c - 1), self.board))
+            if self.board[r + 1][c][0] != color:
+                moves.append(Move((r, c), (r + 1, c), self.board))
+            if c < 7 and self.board[r + 1][c + 1][0] != color:
+                moves.append(Move((r, c), (r + 1, c + 1), self.board))
+        if c > 0 and self.board[r][c - 1][0] != color:
+            moves.append(Move((r, c), (r, c - 1), self.board))
+        if c < 7 and self.board[r][c + 1][0] != color:
+            moves.append(Move((r, c), (r, c + 1), self.board))
 
     def get_all_possible_moves(self):
         moves = []
@@ -103,8 +207,29 @@ class GameState:
                     self.moves_functions[piece_type](r, c, piece_color, moves)
         return moves
 
+    def get_king_position(self, color):
+        for r in self.board:
+            if f"{color}K" in r:
+                return r, r.index(f"{color}K")
+        return -1, -1
+
     def get_valid_moves(self):
-        return self.get_all_possible_moves()
+        possible_moves = self.get_all_possible_moves()
+        if self.white_to_move:
+            king = self.get_king_position("w")
+        else:
+            king = self.get_king_position("b")
+        for i in range(len(possible_moves) - 1, -1, -1,):
+            move = possible_moves[i]
+            self.make_move(move)
+            opponent_moves = self.get_all_possible_moves()
+            for m in opponent_moves:
+                if m.end_row == king[0] and m.end_col == king[1]:
+                    possible_moves.remove(move)
+            self.undo_move()
+        return possible_moves
+
+
 
 
 class Move:

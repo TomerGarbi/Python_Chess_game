@@ -67,7 +67,6 @@ def main():
                 if len(players_clicks) == 2:    #   player may have made a valid move
                     move = chess.Move(players_clicks[0], players_clicks[1], gs.board)
                     if move in valid_moves:
-                        print(move.get_chess_notation())
                         gs.make_move(move)
                         move_made = True
                     square_selected = ()
