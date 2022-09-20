@@ -17,6 +17,12 @@ class GameState:
         self.moves_functions = {"P": self.get_pawn_moves, "R": self.get_rook_moves, "B": self.get_bishop_moves,
                                 "N": self.get_knight_moves, "Q": self.get_queen_moves, "K": self.get_king_moves}
 
+    def turn_color(self):
+        if self.white_to_move:
+            return "w"
+        else:
+            return "b"
+
     def make_move(self,  move):
         self.board[move.start_row][move.start_col] = "--"
         self.board[move.end_row][move.end_col] = move.piece_moved
@@ -38,6 +44,9 @@ class GameState:
             move = self.move_log.pop()
             self.board[move.start_row][move.start_col] = move.piece_moved
             self.board[move.end_row][move.end_col] = move.piece_captured
+            if move.piece_moved[1] == "K":
+                if move.piece_moved[0] == "w":
+                    self.white_king = (move.start_row, move.start_col)
             self.white_to_move = not self.white_to_move
 
     def get_pawn_moves(self, r, c, color, moves):   # TODO: add en passant and promotion
@@ -83,9 +92,9 @@ class GameState:
                 moves.append(Move((r, c), (r + 1, c - 2), self.board))
             if r > 0 and self.board[r - 1][c - 2][0] != color:
                 moves.append(Move((r, c), (r - 1, c - 2), self.board))
-        if c < 6:   # left moves
+        if c < 6:   # right moves
             if r < 7 and self.board[r + 1][c + 2][0] != color:
-                moves.append(Move((r, c), (r - 1, c + 2), self.board))
+                moves.append(Move((r, c), (r + 1, c + 2), self.board))
             if r > 0 and self.board[r - 1][c + 2][0] != color:
                 moves.append(Move((r, c), (r - 1, c + 2), self.board))
 
@@ -209,6 +218,7 @@ class GameState:
         if c < 7 and self.board[r][c + 1][0] != color:
             moves.append(Move((r, c), (r, c + 1), self.board))
 
+
     def get_all_possible_moves(self):
         moves = []
         for r in range(len(self.board)):
@@ -236,18 +246,14 @@ class GameState:
 
     def get_valid_moves(self):
         possible_moves = self.get_all_possible_moves()
-        i = 0
         for i in range(len(possible_moves) - 1, -1, -1):
             move = possible_moves[i]
             self.make_move(move)
             self.white_to_move = not self.white_to_move
             if self.in_check():
                 possible_moves.remove(move)
-            self.white_to_move = not self.white_to_move
             self.undo_move()
-        for m in possible_moves:
-            print(m.start_row, m.start_col, "->", m.end_row, m.end_col)
-        print([m.get_chess_notation() for m in possible_moves])
+            self.white_to_move = not self.white_to_move
         return possible_moves
 
 
