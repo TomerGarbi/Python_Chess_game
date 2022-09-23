@@ -18,14 +18,12 @@ def load_images():
     images["gray_circle"] = pygame.transform.scale(pygame.image.load("./img/gray_circle.png"), (square_size, square_size))
 
 
-
 def draw_board(screen):
     colors = [pygame.Color("white"), pygame.Color("grey")]
     for r in range(dim):
         for c in range(dim):
             color = colors[(r+c) % 2]
             pygame.draw.rect(screen, color, pygame.Rect(c * square_size, r * square_size, square_size, square_size))
-
 
 
 def draw_pieces(screen, board):
@@ -41,16 +39,15 @@ def draw_possible_piece_moves(moves, screen, gs):
         r, c = (move.end_row, move.end_col)
         if gs.board[r][c] == "--":
             # screen.blit(images["gray_dot"], pygame.Rect(c * square_size, r * square_size, square_size, square_size))
-            pygame.draw.circle(screen, (0, 0, 100), ((c + 0.5) * square_size, (r + 0.5) * square_size), square_size/6)
+            pygame.draw.circle(screen, (0, 191, 255), ((c + 0.5) * square_size, (r + 0.5) * square_size), square_size/6)
         else:
-            pygame.draw.circle(screen, (0, 0, 100), ((c + 0.5) * square_size, (r + 0.5) * square_size), square_size/2.25, 5)
+            pygame.draw.circle(screen, (0, 191, 255), ((c + 0.5) * square_size, (r + 0.5) * square_size), square_size/2.25, 5)
 
 
-def draw_game_state(screen, gs, possible_piece_moves):
+def draw_game_state(screen, gs, possible_piece_moves,):
     draw_board(screen)
-    draw_pieces(screen, gs.board)
     draw_possible_piece_moves(possible_piece_moves, screen, gs)
-
+    draw_pieces(screen, gs.board)
 
 
 def get_piece_moves(r, c, valid_moves):
@@ -73,6 +70,12 @@ def main():
     valid_moves = gs.get_valid_moves()
     move_made = False
     while run:
+        if gs.checkmate:
+            run = False
+            if gs.white_to_move:
+                print("black win")
+            else:
+                print("white win")
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -83,7 +86,6 @@ def main():
                 if len(players_clicks) == 0: # player's first click
                     if gs.board[row][col] != "--":
                         possible_piece_moves = get_piece_moves(row, col, valid_moves)
-                        print([m.get_chess_notation() for m in  possible_piece_moves])
                     else:   # player clicked on empty square
                         pass
                     square_selected = (row, col)
@@ -97,6 +99,8 @@ def main():
                         players_clicks.append((row, col))
                         # try to make move
                         move = chess.Move(players_clicks[0], players_clicks[1], gs.board)
+                        if move.is_promotion:
+                            move.promotion_choice = "Q"
                         if move in valid_moves:
                             gs.make_move(move)
                             move_made = True
@@ -113,15 +117,16 @@ def main():
                 if event.key == pygame.K_z:
                     gs.undo_move()
                     move_made = True
-
         if move_made:
             valid_moves = gs.get_valid_moves()
             possible_piece_moves = []
             move_made = False
-
         draw_game_state(screen, gs, possible_piece_moves)
         clock.tick(FPS)
         pygame.display.flip()
+
+
+
 
     pygame.quit()
 

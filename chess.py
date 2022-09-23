@@ -14,6 +14,8 @@ class GameState:
         self.move_log = []
         self.white_king = (7, 4)
         self.black_king = (0, 4)
+        self.checkmate = False
+        self.stalemate = False
         self.moves_functions = {"P": self.get_pawn_moves, "R": self.get_rook_moves, "B": self.get_bishop_moves,
                                 "N": self.get_knight_moves, "Q": self.get_queen_moves, "K": self.get_king_moves}
 
@@ -25,7 +27,13 @@ class GameState:
 
     def make_move(self,  move):
         self.board[move.start_row][move.start_col] = "--"
-        self.board[move.end_row][move.end_col] = move.piece_moved
+        if move.is_promotion:
+            self.board[move.end_row][move.end_col] = move.piece_moved[0] + move.promotion_choice
+        elif move.is_castling:
+            pass
+        else:
+            self.board[move.end_row][move.end_col] = move.piece_moved
+
         self.move_log.append(move)
         if move.piece_moved[1] == 'K':
             if self.white_to_move:
@@ -35,7 +43,6 @@ class GameState:
                 self.black_king = (move.end_row, move.end_col)
                 print("BK: ", self.black_king)
         self.white_to_move = not self.white_to_move
-
 
     def undo_move(self):
         if len(self.move_log) == 0:
@@ -47,12 +54,22 @@ class GameState:
             if move.piece_moved[1] == "K":
                 if move.piece_moved[0] == "w":
                     self.white_king = (move.start_row, move.start_col)
+                else:
+                    self.black_king = (move.start_row, move.start_col)
             self.white_to_move = not self.white_to_move
 
     def get_pawn_moves(self, r, c, color, moves):   # TODO: add en passant and promotion
         if color == "w":    # white to move
             if r == 1:  # check for promotion
-                pass
+                if self.board[r-1][c] == "--":
+                    for P in ["Q, R, B, N"]:
+                        moves.append(Move((r, c), (r - 1, c), self.board, promotion_choice=P))
+                if c < 7 and self.board[r - 1][c + 1][0] == "b":
+                    for P in ["Q, R, B, N"]:
+                        moves.append(Move((r, c), (r - 1, c + 1), self.board, promotion_choice=P))
+                if c > 0 and self.board[r - 1][c - 1][0] == "b":
+                    for P in ["Q, R, B, N"]:
+                        moves.append(Move((r, c), (r - 1, c - 1), self.board, promotion_choice=P))
             else:
                 if self.board[r - 1][c] == "--":
                     moves.append(Move((r, c), (r - 1, c), self.board))
@@ -65,7 +82,15 @@ class GameState:
 
         else:   # black to move
             if r == 6:  # check for promotion
-                pass
+                if self.board[r + 1][c] == "--":
+                    for P in ["Q, R, B, N"]:
+                        moves.append(Move((r, c), (r + 1, c), self.board, promotion_choice=P))
+                if c < 7 and self.board[r + 1][c + 1][0] == "w":
+                    for P in ["Q, R, B, N"]:
+                        moves.append(Move((r, c), (r + 1, c + 1), self.board, promotion_choice=P))
+                if c > 0 and self.board[r + 1][c - 1][0] == "w":
+                    for P in ["Q, R, B, N"]:
+                        moves.append(Move((r, c), (r + 1, c - 1), self.board, promotion_choice=P))
             else:
                 if self.board[r + 1][c] == "--":
                     moves.append(Move((r, c), (r + 1, c), self.board))
@@ -219,6 +244,7 @@ class GameState:
             moves.append(Move((r, c), (r, c + 1), self.board))
 
 
+
     def get_all_possible_moves(self):
         moves = []
         for r in range(len(self.board)):
@@ -254,6 +280,14 @@ class GameState:
                 possible_moves.remove(move)
             self.undo_move()
             self.white_to_move = not self.white_to_move
+        if len(possible_moves) == 0:
+            if self.in_check():
+                self.checkmate = True
+            else:
+                self.stalemate = True
+        else:
+            self.checkmate = False
+            self.stalemate = False
         return possible_moves
 
 
@@ -265,13 +299,26 @@ class Move:
     files_to_cols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
     cols_to_files = {v: k for k, v in files_to_cols.items()}
 
-    def __init__(self, start_square, end_square, board):
+    def __init__(self, start_square, end_square, board, user_move=False, promotion_choice=""):
         self.start_row = start_square[0]
         self.start_col = start_square[1]
         self.end_row = end_square[0]
         self.end_col = end_square[1]
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
+        self.is_promotion = False
+        self.promotion_choice = promotion_choice
+        self.user_move = user_move
+        if (self.piece_moved == "wP" and self.end_row == 0) or (self.piece_moved == "bP" and self.end_row == 7):
+            self.is_promotion = True
+        self.is_castling = ""
+        if self.piece_moved == "K":
+            if end_square == (start_square[0], start_square + 2):
+                self.is_castling = "O-O"
+            elif end_square == (start_square[0], start_square - 2):
+                self.is_castling = "O-O-O"
+
+
 
     def get_file_rank(self, row, col):
         return self.cols_to_files[col] + self.rows_to_ranks[row]
