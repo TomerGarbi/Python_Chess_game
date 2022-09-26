@@ -58,6 +58,25 @@ def get_piece_moves(r, c, valid_moves):
     return moves
 
 
+def wait_for_promotion_key():
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    return "Q"
+                elif event.key == pygame.K_n:
+                    return "N"
+                elif event.key == pygame.K_r:
+                    return "R"
+                elif event.key == pygame.K_b:
+                    return "B"
+                else:
+                    print("press 'q', 'r', 'n' or 'b'")
+
+
 def main():
     screen = pygame.display.set_mode((WIDTH, HIGHT))
     clock = pygame.time.Clock()
@@ -73,9 +92,9 @@ def main():
         if gs.checkmate:
             run = False
             if gs.white_to_move:
-                print("black win")
+                print("black is the winner")
             else:
-                print("white win")
+                print("white winner")
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -83,7 +102,7 @@ def main():
                 location = pygame.mouse.get_pos()
                 col = location[0] // square_size
                 row = location[1] // square_size
-                if len(players_clicks) == 0: # player's first click
+                if len(players_clicks) == 0:    # player's first click
                     if gs.board[row][col] != "--":
                         possible_piece_moves = get_piece_moves(row, col, valid_moves)
                     else:   # player clicked on empty square
@@ -98,15 +117,17 @@ def main():
                     else:   # player clicked different square
                         players_clicks.append((row, col))
                         # try to make move
-                        move = chess.Move(players_clicks[0], players_clicks[1], gs.board)
-                        if move.is_promotion:
-                            move.promotion_choice = "Q"
+                        move = chess.Move(players_clicks[0], players_clicks[1], gs.board, user_move=True)
                         if move in valid_moves:
+                            move = valid_moves[valid_moves.index(move)]
+                            move.user_move = True
+                            if move.is_promotion:
+                                move.promotion_choice = wait_for_promotion_key()
                             gs.make_move(move)
                             move_made = True
                             players_clicks = []
                             square_selected = ()
-                        else: #  move is not valid:
+                        else:   # move is not valid:
                             if gs.board[row][col][0] == gs.turn_color():    # player clicked different piece
                                 square_selected = (row, col)
                                 players_clicks = [square_selected]
@@ -124,10 +145,6 @@ def main():
         draw_game_state(screen, gs, possible_piece_moves)
         clock.tick(FPS)
         pygame.display.flip()
-
-
-
-
     pygame.quit()
 
 

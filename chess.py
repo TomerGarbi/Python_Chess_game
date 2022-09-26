@@ -18,6 +18,7 @@ class GameState:
         self.stalemate = False
         self.moves_functions = {"P": self.get_pawn_moves, "R": self.get_rook_moves, "B": self.get_bishop_moves,
                                 "N": self.get_knight_moves, "Q": self.get_queen_moves, "K": self.get_king_moves}
+        self.en_passant_square = ()
 
     def turn_color(self):
         if self.white_to_move:
@@ -29,19 +30,23 @@ class GameState:
         self.board[move.start_row][move.start_col] = "--"
         if move.is_promotion:
             self.board[move.end_row][move.end_col] = move.piece_moved[0] + move.promotion_choice
-        elif move.is_castling:
-            pass
         else:
             self.board[move.end_row][move.end_col] = move.piece_moved
+            if move.is_en_passant:
+                self.board[move.start_row][move.end_col] = "--"
 
         self.move_log.append(move)
         if move.piece_moved[1] == 'K':
             if self.white_to_move:
                 self.white_king = (move.end_row, move.end_col)
-                print("WK", self.white_king)
             else:
                 self.black_king = (move.end_row, move.end_col)
-                print("BK: ", self.black_king)
+
+        if move.piece_moved[1] == "P" and abs(move.start_row - move.end_row) == 2:
+            self.en_passant_square = ((move.start_row + move.end_row) // 2, move.start_col)
+        else:
+            self.en_passant_square = ()
+
         self.white_to_move = not self.white_to_move
 
     def undo_move(self):
@@ -56,9 +61,15 @@ class GameState:
                     self.white_king = (move.start_row, move.start_col)
                 else:
                     self.black_king = (move.start_row, move.start_col)
+            if move.is_en_passant:
+                self.en_passant_square = (move.end_row, move.end_col)
+                self.board[move.end_row][move.end_col] = "--"
+                self.board[move.start_row][move.end_col] = move.piece_captured
+            if move.piece_moved[1] == "P" and abs(move.start_row - move.end_row) == 2:
+                self.en_passant_square = ()
             self.white_to_move = not self.white_to_move
 
-    def get_pawn_moves(self, r, c, color, moves):   # TODO: add en passant and promotion
+    def get_pawn_moves(self, r, c, color, moves):   # TODO: add en passant
         if color == "w":    # white to move
             if r == 1:  # check for promotion
                 if self.board[r-1][c] == "--":
@@ -75,10 +86,16 @@ class GameState:
                     moves.append(Move((r, c), (r - 1, c), self.board))
                     if r == 6 and self.board[r-2][c] == "--":
                         moves.append(Move((r, c), (r - 2, c), self.board))
-                if c < 7 and self.board[r - 1][c + 1][0] == "b":
-                    moves.append(Move((r, c), (r - 1, c + 1), self.board))
-                if c > 0 and self.board[r - 1][c - 1][0] == "b":
-                    moves.append(Move((r, c), (r - 1, c - 1), self.board))
+                if c < 7:
+                    if self.board[r - 1][c + 1][0] == "b":
+                        moves.append(Move((r, c), (r - 1, c + 1), self.board))
+                    elif (r - 1, c + 1) == self.en_passant_square:
+                        moves.append(Move((r, c), (r - 1, c + 1), self.board, en_passant=True))
+                if c > 0:
+                    if self.board[r - 1][c - 1][0] == "b":
+                        moves.append(Move((r, c), (r - 1, c - 1), self.board))
+                    elif (r - 1, c - 1) == self.en_passant_square:
+                        moves.append(Move((r, c), (r - 1, c - 1), self.board, en_passant=True))
 
         else:   # black to move
             if r == 6:  # check for promotion
@@ -96,10 +113,16 @@ class GameState:
                     moves.append(Move((r, c), (r + 1, c), self.board))
                     if r == 1 and self.board[r + 2][c] == "--":
                         moves.append(Move((r, c), (r + 2, c), self.board))
-                if c < 7 and self.board[r + 1][c + 1][0] == "w":
-                    moves.append(Move((r, c), (r + 1, c + 1), self.board))
-                if c > 0 and self.board[r + 1][c - 1][0] == "w":
-                    moves.append(Move((r, c), (r + 1, c - 1), self.board))
+                if c < 7:
+                    if self.board[r + 1][c + 1][0] == "w":
+                        moves.append(Move((r, c), (r + 1, c + 1), self.board))
+                    elif (r + 1, c + 1) == self.en_passant_square:
+                        moves.append(Move((r, c), (r + 1, c + 1), self.board, en_passant=True))
+                if c > 0:
+                    if self.board[r + 1][c - 1][0] == "w":
+                        moves.append(Move((r, c), (r + 1, c - 1), self.board))
+                    elif (r + 1, c - 1) == self.en_passant_square:
+                        moves.append(Move((r, c), (r + 1, c - 1), self.board, en_passant=True))
 
     def get_knight_moves(self, r, c, color, moves):
         if r > 1:   # up moves
@@ -271,6 +294,7 @@ class GameState:
             return self.square_under_attack(self.black_king[0], self.black_king[1])
 
     def get_valid_moves(self):
+        temp_en_passant = self.en_passant_square
         possible_moves = self.get_all_possible_moves()
         for i in range(len(possible_moves) - 1, -1, -1):
             move = possible_moves[i]
@@ -288,9 +312,9 @@ class GameState:
         else:
             self.checkmate = False
             self.stalemate = False
+
+        self.en_passant_square = temp_en_passant
         return possible_moves
-
-
 
 
 class Move:
@@ -299,7 +323,7 @@ class Move:
     files_to_cols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
     cols_to_files = {v: k for k, v in files_to_cols.items()}
 
-    def __init__(self, start_square, end_square, board, user_move=False, promotion_choice=""):
+    def __init__(self, start_square, end_square, board, user_move=False, promotion_choice="", en_passant=False):
         self.start_row = start_square[0]
         self.start_col = start_square[1]
         self.end_row = end_square[0]
@@ -309,17 +333,11 @@ class Move:
         self.is_promotion = False
         self.promotion_choice = promotion_choice
         self.user_move = user_move
-        if (self.piece_moved == "wP" and self.end_row == 0) or (self.piece_moved == "bP" and self.end_row == 7):
-            self.is_promotion = True
-        self.is_castling = ""
-        if self.piece_moved == "K":
-            if end_square == (start_square[0], start_square + 2):
-                self.is_castling = "O-O"
-            elif end_square == (start_square[0], start_square - 2):
-                self.is_castling = "O-O-O"
-
-
-
+        self.is_promotion = (self.piece_moved == "wP" and self.end_row == 0) or (self.piece_moved == "bP" and self.end_row == 7)
+        self.is_en_passant = False
+        self.is_en_passant = self.piece_moved[1] == "P" and en_passant
+        if self.is_en_passant:
+            self.piece_captured = "wP" if self.piece_moved == "bP" else "bP"
     def get_file_rank(self, row, col):
         return self.cols_to_files[col] + self.rows_to_ranks[row]
 
