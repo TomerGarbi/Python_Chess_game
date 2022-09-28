@@ -19,12 +19,35 @@ class GameState:
         self.moves_functions = {"P": self.get_pawn_moves, "R": self.get_rook_moves, "B": self.get_bishop_moves,
                                 "N": self.get_knight_moves, "Q": self.get_queen_moves, "K": self.get_king_moves}
         self.en_passant_square = ()
+        self.castling_rights = CastlingRights(True, True, True, True)
+        self.castling_rights_log = [CastlingRights(self.castling_rights.white_king_side, self.castling_rights.white_queen_side,
+                                    self.castling_rights.black_king_side, self.castling_rights.black_queen_side)]
 
     def turn_color(self):
         if self.white_to_move:
             return "w"
         else:
             return "b"
+
+    def update_castling_rights(self, move):
+        if move.piece_moved == "wK":
+            self.castling_rights.white_queen_side = False
+            self.castling_rights.white_king_side = False
+        elif move.piece_moved == "bK":
+            self.castling_rights.black_queen_side = False
+            self.castling_rights.black_king_side = False
+        elif move.piece_moved == "wR":
+            if move.start_row == 7:
+                if move.start_col == 0:
+                    self.castling_rights.white_queen_side = False
+                elif move.start_col == 7:
+                    self.castling_rights.white_king_side = False
+        elif move.piece_moved == "bR":
+            if move.start_row == 0:
+                if move.start_col == 0:
+                    self.castling_rights.black_queen_side = False
+                elif move.start_col == 7:
+                    self.castling_rights.black_king_side = False
 
     def make_move(self,  move):
         self.board[move.start_row][move.start_col] = "--"
@@ -34,19 +57,26 @@ class GameState:
             self.board[move.end_row][move.end_col] = move.piece_moved
             if move.is_en_passant:
                 self.board[move.start_row][move.end_col] = "--"
-
+            elif move.castle:
+                if move.end_col > move.start_col:
+                    self.board[move.start_row][move.end_col - 1] = self.board[move.start_row][move.end_col + 1]
+                    self.board[move.start_row][move.end_col + 1] = "--"
+                else:
+                    self.board[move.start_row][move.end_col + 1] = self.board[move.start_row][move.end_col - 2]
+                    self.board[move.start_row][move.end_col - 2] = "--"
         self.move_log.append(move)
         if move.piece_moved[1] == 'K':
             if self.white_to_move:
                 self.white_king = (move.end_row, move.end_col)
             else:
                 self.black_king = (move.end_row, move.end_col)
-
         if move.piece_moved[1] == "P" and abs(move.start_row - move.end_row) == 2:
             self.en_passant_square = ((move.start_row + move.end_row) // 2, move.start_col)
         else:
             self.en_passant_square = ()
-
+        self.update_castling_rights(move)
+        self.castling_rights_log.append(CastlingRights(self.castling_rights.white_king_side, self.castling_rights.white_queen_side,
+                                    self.castling_rights.black_king_side, self.castling_rights.black_queen_side))
         self.white_to_move = not self.white_to_move
 
     def undo_move(self):
@@ -64,12 +94,23 @@ class GameState:
             if move.is_en_passant:
                 self.en_passant_square = (move.end_row, move.end_col)
                 self.board[move.end_row][move.end_col] = "--"
+            if move.castle:
+                if move.end_col > move.start_col:
+                    self.board[move.start_row][move.end_col + 1] = self.board[move.start_row][move.end_col - 1]
+                    self.board[move.start_row][move.end_col - 1] = "--"
+                else:
+                    self.board[move.start_row][move.end_col - 2] = self.board[move.start_row][move.end_col + 1]
+                    self.board[move.start_row][move.end_col + 1] = "--"
+
                 self.board[move.start_row][move.end_col] = move.piece_captured
             if move.piece_moved[1] == "P" and abs(move.start_row - move.end_row) == 2:
                 self.en_passant_square = ()
+
+            self.castling_rights_log.pop()
+            self.castling_rights = self.castling_rights_log[-1]
             self.white_to_move = not self.white_to_move
 
-    def get_pawn_moves(self, r, c, color, moves):   # TODO: add en passant
+    def get_pawn_moves(self, r, c, color, moves):
         if color == "w":    # white to move
             if r == 1:  # check for promotion
                 if self.board[r-1][c] == "--":
@@ -246,6 +287,24 @@ class GameState:
         self.get_rook_moves(r, c, color, moves)
         self.get_bishop_moves(r, c, color, moves)
 
+
+
+    def get_castle_moves(self, r, c, color, moves):
+        if self.square_under_attack(r, c):
+            return
+        elif color == "w":
+            if self.castling_rights.white_king_side:
+                if self.board[r][c + 1] == "--" and not self.square_under_attack(r, c + 1):
+                    if self.board[r][c + 2] == "--" and not self.square_under_attack(r, c + 2):
+                        moves.append(Move((r, c), (r, c + 2), self.board, castle=True))
+            if self.castling_rights.white_queen_side:
+                if self.board[r][c - 1] == "--" and not self.square_under_attack(r, c - 1):
+                    if self.board[r][c - 2] == "--" and not self.square_under_attack(r, c - 2):
+                        if self.board[r][c - 3] == "--":
+                            moves.append(Move((r, c), (r, c - 2), self.board, castle=True))
+
+
+
     def get_king_moves(self, r, c, color, moves):   # TODO: add castling
         if r > 0:   # up moves
             if c > 0 and self.board[r - 1][c - 1][0] != color:
@@ -265,8 +324,6 @@ class GameState:
             moves.append(Move((r, c), (r, c - 1), self.board))
         if c < 7 and self.board[r][c + 1][0] != color:
             moves.append(Move((r, c), (r, c + 1), self.board))
-
-
 
     def get_all_possible_moves(self):
         moves = []
@@ -296,6 +353,8 @@ class GameState:
     def get_valid_moves(self):
         temp_en_passant = self.en_passant_square
         possible_moves = self.get_all_possible_moves()
+        temp_castling_rights = CastlingRights(self.castling_rights.white_king_side, self.castling_rights.white_queen_side,
+                                              self.castling_rights.black_king_side, self.castling_rights.black_queen_side)
         for i in range(len(possible_moves) - 1, -1, -1):
             move = possible_moves[i]
             self.make_move(move)
@@ -313,7 +372,12 @@ class GameState:
             self.checkmate = False
             self.stalemate = False
 
+        if self.white_to_move:
+            self.get_castle_moves(self.white_king[0], self.white_king[1], "w", possible_moves)
+        else:
+            self.get_castle_moves(self.black_king[0], self.black_king[1], "b", possible_moves)
         self.en_passant_square = temp_en_passant
+        self.castling_rights = temp_castling_rights
         return possible_moves
 
 
@@ -323,7 +387,7 @@ class Move:
     files_to_cols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
     cols_to_files = {v: k for k, v in files_to_cols.items()}
 
-    def __init__(self, start_square, end_square, board, user_move=False, promotion_choice="", en_passant=False):
+    def __init__(self, start_square, end_square, board, user_move=False, promotion_choice="", en_passant=False, castle=False):
         self.start_row = start_square[0]
         self.start_col = start_square[1]
         self.end_row = end_square[0]
@@ -333,11 +397,13 @@ class Move:
         self.is_promotion = False
         self.promotion_choice = promotion_choice
         self.user_move = user_move
+        self.castle = castle
         self.is_promotion = (self.piece_moved == "wP" and self.end_row == 0) or (self.piece_moved == "bP" and self.end_row == 7)
         self.is_en_passant = False
         self.is_en_passant = self.piece_moved[1] == "P" and en_passant
         if self.is_en_passant:
             self.piece_captured = "wP" if self.piece_moved == "bP" else "bP"
+
     def get_file_rank(self, row, col):
         return self.cols_to_files[col] + self.rows_to_ranks[row]
 
@@ -353,6 +419,14 @@ class Move:
         return False
 
 
+class CastlingRights:
+    def __init__(self, white_king_side, white_queen_side, black_king_side, black_queen_side):
+        self.white_king_side = white_king_side
+        self.white_queen_side = white_queen_side
+        self.black_king_side = black_king_side
+        self.black_queen_side = black_queen_side
 
+    def __str__(self):
+        return f"{self.white_king_side} {self.white_queen_side} | {self.black_king_side} {self.black_queen_side}"
 
 

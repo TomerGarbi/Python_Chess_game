@@ -94,7 +94,7 @@ def main():
             if gs.white_to_move:
                 print("black is the winner")
             else:
-                print("white winner")
+                print("white is the winner")
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -139,6 +139,9 @@ def main():
                     gs.undo_move()
                     move_made = True
         if move_made:
+            for i in range(len(gs.castling_rights_log)):
+                print(gs.castling_rights_log[i])
+            print("------------------------------")
             valid_moves = gs.get_valid_moves()
             possible_piece_moves = []
             move_made = False
