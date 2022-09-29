@@ -177,6 +177,9 @@ def main():
                     gs.undo_move()
                     move_made = True
         if move_made:
+            for r in gs.castling_rights_log:
+                print(r)
+            print("-------------------------")
             valid_moves = gs.get_valid_moves()
             possible_piece_moves = []
             move_made = False
