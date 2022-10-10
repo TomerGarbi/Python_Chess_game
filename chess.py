@@ -1,4 +1,8 @@
 class GameState:
+    ranks_to_rows = {"1": 7, "2": 6, "3": 5, "4": 4, "5": 3, "6": 2, "7": 1, "8": 0}
+    rows_to_ranks = {v: k for k, v in ranks_to_rows.items()}
+    files_to_cols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
+    cols_to_files = {v: k for k, v in files_to_cols.items()}
     def __init__(self):
         self.board = [
             ["bR", "bN", "bB", "bQ", "bK", "bB", "bN", "bR"],
@@ -21,12 +25,17 @@ class GameState:
         self.en_passant_square = ()
         self.current_castling_rights = CastlingRights(True, True, True, True)
         self.castling_rights_log = [self.hard_copy_castling_rights(self.current_castling_rights)]
+        self.pawn_or_captures = 0
+        self.pawn_or_captures_log = [0]
 
     def turn_color(self):
         if self.white_to_move:
             return "w"
         else:
             return "b"
+
+    def switch_turns(self):
+        self.white_to_move = not self.white_to_move
 
     def hard_copy_castling_rights(self, castling_rights):
         return CastlingRights(castling_rights.white_king_side, castling_rights.white_queen_side,
@@ -52,7 +61,7 @@ class GameState:
                 elif move.start_col == 7:
                     self.current_castling_rights.black_king_side = False
 
-    def make_move(self,  move):
+    def make_move(self, move):
         self.board[move.start_row][move.start_col] = "--"
         if move.is_promotion:
             self.board[move.end_row][move.end_col] = move.piece_moved[0] + move.promotion_choice
@@ -79,7 +88,13 @@ class GameState:
             self.en_passant_square = ()
         self.update_castling_rights(move)
         self.castling_rights_log.append(self.hard_copy_castling_rights(self.current_castling_rights))
-        self.white_to_move = not self.white_to_move
+        self.pawn_or_captures_log.append(self.pawn_or_captures)
+        if move.piece_moved == "P" or move.is_capture:
+            self.pawn_or_captures = 0
+        else:
+            self.pawn_or_captures += 1
+        self.switch_turns()
+
 
     def undo_move(self):
         if len(self.move_log) == 0:
@@ -110,19 +125,21 @@ class GameState:
                     self.board[move.end_row][move.end_col] = "--"
             self.castling_rights_log.pop()
             self.current_castling_rights = self.hard_copy_castling_rights(self.castling_rights_log[-1])
-            self.white_to_move = not self.white_to_move
+            self.pawn_or_captures = self.pawn_or_captures_log.pop()
+            self.switch_turns()
 
     def get_pawn_moves(self, r, c, color, moves):
+        promotion_options = ["Q", "R", "B", "N"]
         if color == "w":    # white to move
             if r == 1:  # check for promotion
                 if self.board[r-1][c] == "--":
-                    for P in ["Q, R, B, N"]:
+                    for P in promotion_options:
                         moves.append(Move((r, c), (r - 1, c), self.board, promotion_choice=P))
                 if c < 7 and self.board[r - 1][c + 1][0] == "b":
-                    for P in ["Q, R, B, N"]:
+                    for P in promotion_options:
                         moves.append(Move((r, c), (r - 1, c + 1), self.board, promotion_choice=P))
                 if c > 0 and self.board[r - 1][c - 1][0] == "b":
-                    for P in ["Q, R, B, N"]:
+                    for P in promotion_options:
                         moves.append(Move((r, c), (r - 1, c - 1), self.board, promotion_choice=P))
             else:
                 if self.board[r - 1][c] == "--":
@@ -143,13 +160,13 @@ class GameState:
         else:   # black to move
             if r == 6:  # check for promotion
                 if self.board[r + 1][c] == "--":
-                    for P in ["Q, R, B, N"]:
+                    for P in promotion_options:
                         moves.append(Move((r, c), (r + 1, c), self.board, promotion_choice=P))
                 if c < 7 and self.board[r + 1][c + 1][0] == "w":
-                    for P in ["Q, R, B, N"]:
+                    for P in promotion_options:
                         moves.append(Move((r, c), (r + 1, c + 1), self.board, promotion_choice=P))
                 if c > 0 and self.board[r + 1][c - 1][0] == "w":
-                    for P in ["Q, R, B, N"]:
+                    for P in promotion_options:
                         moves.append(Move((r, c), (r + 1, c - 1), self.board, promotion_choice=P))
             else:
                 if self.board[r + 1][c] == "--":
@@ -245,31 +262,30 @@ class GameState:
         if c < 7 and self.board[r][c + 1][0] != color:
             moves.append(Move((r, c), (r, c + 1), self.board))
 
+    def get_king_side_castling(self, r, c, color, moves):
+        if not self.in_check():
+            if self.board[r][c + 1] == "--" and not self.square_under_attack(r, c + 1):
+                if self.board[r][c + 2] == "--" and not self.square_under_attack(r, c + 2):
+                    moves.append(Move((r, c), (r, c + 2), self.board, castle_move=True))
+
+    def get_queen_side_castling(self, r, c, color, moves):
+        if not self.in_check():
+            if self.board[r][c - 1] == "--" and not self.square_under_attack(r, c - 1):
+                if self.board[r][c - 2] == "--" and not self.square_under_attack(r, c - 2):
+                    if self.board[r][c - 3] == "--":
+                        moves.append(Move((r, c), (r, c - 2), self.board, castle_move=True))
+
     def get_castling_moves(self, r, c, color, moves):
         if color == 'w':
             if self.current_castling_rights.white_king_side:
-                if not self.in_check():
-                    if self.board[r][c + 1] == "--" and not self.square_under_attack(r, c + 1):
-                        if self.board[r][c + 2] == "--" and not self.square_under_attack(r, c + 2):
-                            moves.append(Move((r, c), (r, c + 2), self.board, castle_move=True))
+                self.get_king_side_castling(r, c, color, moves)
             if self.current_castling_rights.white_queen_side:
-                if not self.in_check():
-                    if self.board[r][c - 1] == "--" and not self.square_under_attack(r, c - 1):
-                        if self.board[r][c - 2] == "--" and not self.square_under_attack(r, c - 2):
-                            if self.board[r][c - 3] == "--":
-                                moves.append(Move((r, c), (r, c - 2), self.board, castle_move=True))
+                self.get_queen_side_castling(r, c, color, moves)
         else:
             if self.current_castling_rights.black_king_side:
-                if not self.in_check():
-                    if self.board[r][c + 1] == "--" and not self.square_under_attack(r, c + 1):
-                        if self.board[r][c + 2] == "--" and not self.square_under_attack(r, c + 2):
-                            moves.append(Move((r, c), (r, c + 2), self.board, castle_move=True))
+                self.get_king_side_castling(r, c, color, moves)
             if self.current_castling_rights.black_queen_side:
-                if not self.in_check():
-                    if self.board[r][c - 1] == "--" and not self.square_under_attack(r, c - 1):
-                        if self.board[r][c - 2] == "--" and not self.square_under_attack(r, c - 2):
-                            if self.board[r][c - 3] == "--":
-                                moves.append(Move((r, c), (r, c - 2), self.board, castle_move=True))
+                self.get_queen_side_castling(r, c, color, moves)
 
     def get_all_possible_moves(self, include_castling=False):
         moves = []
@@ -283,13 +299,13 @@ class GameState:
         return moves
 
     def square_under_attack(self, r, c):
-        self.white_to_move = not self.white_to_move
+        self.switch_turns()
         opponent_moves = self.get_all_possible_moves()
         for move in opponent_moves:
             if move.end_row == r and move.end_col == c:
-                self.white_to_move = not self.white_to_move
+                self.switch_turns()
                 return True
-        self.white_to_move = not self.white_to_move
+        self.switch_turns()
         return False
 
     def in_check(self):
@@ -304,11 +320,11 @@ class GameState:
         for i in range(len(possible_moves) - 1, -1, -1):
             move = possible_moves[i]
             self.make_move(move)
-            self.white_to_move = not self.white_to_move
+            self.switch_turns()
             if self.in_check():
                 possible_moves.remove(move)
             self.undo_move()
-            self.white_to_move = not self.white_to_move
+            self.switch_turns()
         if len(possible_moves) == 0:
             if self.in_check():
                 self.checkmate = True
@@ -319,6 +335,39 @@ class GameState:
             self.stalemate = False
         self.en_passant_square = temp_en_passant
         return possible_moves
+
+
+    def FEN(self):
+        fen = ""
+        for i in range(len(self.board)):
+            empty_squares = 0
+            for j in range(len(self.board[i])):
+                piece = self.board[i][j]
+                if piece == "--":
+                    empty_squares += 1
+                else:
+                    if empty_squares != 0:
+                        fen += str(empty_squares)
+                        empty_squares = 0
+                    if piece[0] == "w":
+                        fen = fen + piece[1]
+                    else:
+                        fen = fen + piece[1].lower()
+            if empty_squares != 0:
+                fen = fen + str(empty_squares)
+            if i != 7:
+                fen = fen + "/"
+        if self.white_to_move:
+            fen += " w "
+        else:
+            fen += " b "
+        fen += self.current_castling_rights.get_FEN()
+        if self.en_passant_square != ():
+            fen += " " + str(self.en_passant_square[0]) + self.cols_to_files(self.en_passant_square[1]) + " "
+        else:
+            fen += " - "
+        fen += str(self.pawn_or_captures) + " " + str(len(self.move_log) // 2 + 1)
+        return fen
 
 
 class Move:
@@ -341,6 +390,7 @@ class Move:
         self.is_en_passant = False
         self.is_en_passant = self.piece_moved[1] == "P" and en_passant
         self.castle_move = castle_move
+        self.is_capture = self.piece_captured != "--"
         if self.castle_move:
             self.piece_captured = f"{self.piece_moved[0]}R"
         if self.is_en_passant:
@@ -370,3 +420,18 @@ class CastlingRights:
 
     def __str__(self):
         return f"white: {self.white_king_side}, {self.white_queen_side} | black: {self.black_king_side}, {self.black_queen_side}"
+
+    def get_FEN(self):
+        fen = ""
+        if self.white_king_side:
+            fen += "K"
+        if self.white_queen_side:
+            fen += "Q"
+        if self.black_king_side:
+            fen += "k"
+        if self.black_queen_side:
+            fen += "q"
+        if fen != "":
+            return fen
+        else:
+            return "-"

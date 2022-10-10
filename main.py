@@ -3,13 +3,14 @@ import chess
 import pygame
 pygame.init()
 
-WIDTH, HIGHT = 512, 512
+WIDTH, HEIGHT = 512, 512
 dim = 8
-square_size = HIGHT // dim
-FPS = 15
+square_size = HEIGHT // dim
+FPS = 20
 clock = pygame.time.Clock()
 images = {}
 font = pygame.font.SysFont('Arial', 16)
+
 
 def load_images():
     pieces = ["wP", "wR", "wN", "wB", "wQ", "wK", "bP", "bR", "bN", "bB", "bQ", "bK"]
@@ -46,10 +47,17 @@ def draw_possible_piece_moves(moves, screen, gs):
             pygame.draw.circle(screen, (0, 191, 255), ((c + 0.5) * square_size, (r + 0.5) * square_size), square_size/2.25, 5)
 
 
-def draw_game_state(screen, gs, possible_piece_moves,):
+def draw_square_selected(screen, square_selected):
+    if square_selected != ():
+        r, c = square_selected
+        pygame.draw.rect(screen, (0, 191, 255), pygame.Rect(c * square_size, r * square_size, square_size, square_size), 2)
+
+
+def draw_game_state(screen, gs, possible_piece_moves, square_selected):
     draw_board(screen)
     draw_possible_piece_moves(possible_piece_moves, screen, gs)
     draw_pieces(screen, gs.board)
+    draw_square_selected(screen, square_selected)
 
 
 def get_piece_moves(r, c, valid_moves):
@@ -60,7 +68,20 @@ def get_piece_moves(r, c, valid_moves):
     return moves
 
 
-def wait_for_promotion_key():
+def draw_promotion_menu(screen, move):
+    color = move.piece_moved[0]
+    if color == "w":
+        r, c = move.end_row * square_size, move.end_col * square_size
+    else:
+        r, c = move.end_row * square_size - 4 * square_size, move.end_col * square_size
+    pygame.draw.rect(screen, (255, 255, 220), pygame.Rect(c, r, square_size, 4*square_size))
+    screen.blit(images[f"{color}Q"], pygame.Rect(c, r, square_size, square_size))
+    screen.blit(images[f"{color}R"], pygame.Rect(c, r + square_size, square_size, square_size))
+    screen.blit(images[f"{color}N"], pygame.Rect(c, r + 2 * square_size, square_size, square_size))
+    screen.blit(images[f"{color}B"], pygame.Rect(c, r + 3 * square_size, square_size, square_size))
+
+
+def wait_for_promotion_key(screen, gs, move):
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -75,13 +96,10 @@ def wait_for_promotion_key():
                     return "R"
                 elif event.key == pygame.K_b:
                     return "B"
-                else:
-                    print("press 'q', 'r', 'n' or 'b'")
+        draw_promotion_menu(screen, move)
+        pygame.display.update()
         clock.tick(FPS)
 
-#
-# def draw_open_screen(screen):
-#     pygame.display.
 
 def open_screen(screen):
     buttons_size = (150, 50)
@@ -91,6 +109,9 @@ def open_screen(screen):
     while run_open_screen:
         screen.fill((255, 255, 255))
         location = pygame.mouse.get_pos()
+        color = (125, 125, 125)
+        if start_button_pos[0] <= location[0] <= start_button_pos[0] + buttons_size[0] and start_button_pos[1] <= location[1] <= buttons_size[1] + start_button_pos[1]:
+            color = (255, 100, 20)
         for event in pygame.event.get():
             if event.type == pygame. QUIT:
                 run_open_screen = False
@@ -99,7 +120,7 @@ def open_screen(screen):
                 if start_button_pos[0] <= location[0] <= start_button_pos[0] + buttons_size[0] and start_button_pos[1] <= location[1] <= buttons_size[1] + start_button_pos[1]:
                     return 2
         screen.blit(images["logo"], pygame.Rect(150, 25, 200, 200))
-        pygame.draw.rect(screen, (125, 125, 125), pygame.Rect(start_button_pos[0], start_button_pos[1], buttons_size[0], buttons_size[1]))
+        pygame.draw.rect(screen, color, pygame.Rect(start_button_pos[0], start_button_pos[1], buttons_size[0], buttons_size[1]))
         screen.blit(font.render('Start Game', True, (0, 0, 0)), (start_button_pos[0] + 32, start_button_pos[1] + 15))
         pygame.display.update()
         clock.tick(FPS)
@@ -109,11 +130,8 @@ def open_screen(screen):
     return 1
 
 
-
-
-
 def main():
-    screen = pygame.display.set_mode((WIDTH, HIGHT))
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
     gs = chess.GameState()
     load_images()
     run = True
@@ -125,7 +143,6 @@ def main():
     start_game = open_screen(screen)
     if start_game == 0:
         exit(0)
-
     while run:
         if gs.checkmate:
             run = False
@@ -160,7 +177,7 @@ def main():
                             move = valid_moves[valid_moves.index(move)]
                             move.user_move = True
                             if move.is_promotion:
-                                move.promotion_choice = wait_for_promotion_key()
+                                move.promotion_choice = wait_for_promotion_key(screen, gs, move)
                             gs.make_move(move)
                             move_made = True
                             players_clicks = []
@@ -175,15 +192,13 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_z:
                     gs.undo_move()
+                    square_selected = ()
                     move_made = True
         if move_made:
-            for r in gs.castling_rights_log:
-                print(r)
-            print("-------------------------")
             valid_moves = gs.get_valid_moves()
             possible_piece_moves = []
             move_made = False
-        draw_game_state(screen, gs, possible_piece_moves)
+        draw_game_state(screen, gs, possible_piece_moves, square_selected)
         clock.tick(FPS)
         pygame.display.flip()
     pygame.quit()
