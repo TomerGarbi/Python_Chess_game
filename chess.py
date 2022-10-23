@@ -1,8 +1,10 @@
 class GameState:
+
     ranks_to_rows = {"1": 7, "2": 6, "3": 5, "4": 4, "5": 3, "6": 2, "7": 1, "8": 0}
     rows_to_ranks = {v: k for k, v in ranks_to_rows.items()}
     files_to_cols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
     cols_to_files = {v: k for k, v in files_to_cols.items()}
+
     def __init__(self):
         self.board = [
             ["bR", "bN", "bB", "bQ", "bK", "bB", "bN", "bR"],
@@ -89,12 +91,11 @@ class GameState:
         self.update_castling_rights(move)
         self.castling_rights_log.append(self.hard_copy_castling_rights(self.current_castling_rights))
         self.pawn_or_captures_log.append(self.pawn_or_captures)
-        if move.piece_moved == "P" or move.is_capture:
+        if move.piece_moved[1] == "P" or move.is_capture:
             self.pawn_or_captures = 0
         else:
             self.pawn_or_captures += 1
         self.switch_turns()
-
 
     def undo_move(self):
         if len(self.move_log) == 0:
@@ -363,11 +364,18 @@ class GameState:
             fen += " b "
         fen += self.current_castling_rights.get_FEN()
         if self.en_passant_square != ():
-            fen += " " + str(self.en_passant_square[0]) + self.cols_to_files(self.en_passant_square[1]) + " "
+            fen += " " + self.cols_to_files[self.en_passant_square[1]] + self.rows_to_ranks[self.en_passant_square[0]] + " "
         else:
             fen += " - "
         fen += str(self.pawn_or_captures) + " " + str(len(self.move_log) // 2 + 1)
         return fen
+
+    def get_piece_moves(self, r, c, valid_moves):
+        moves = []
+        for move in valid_moves:
+            if move.start_row == r and move.start_col == c:
+                moves.append(move)
+        return moves
 
 
 class Move:
