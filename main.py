@@ -16,6 +16,7 @@ FPS = 20
 clock = pygame.time.Clock()
 images = {}
 font = pygame.font.SysFont('Arial', 16)
+big_font = pygame.font.SysFont('Arial', 42)
 engine = Stockfish(path="./stockfish_14.1_win_x64_avx2.exe")
 engine.set_depth(12)
 colors = {"black": (0, 0, 0), "white": (255, 255, 255), "orange": (255, 100, 20), "gray": (160, 160, 160),
@@ -143,14 +144,30 @@ def open_screen(screen):
 
 
 def game_end_screen(screen, gs, result):
+    results = ["The Game Ended with a Draw", "White Won the Game", "Black Won the Game"]
+    main_menu_button = button.Button(150, 50, colors["gray"], (200, 200), "main menu", "main_menu")
+    buttons = [main_menu_button]
     draw_end_screen = True
     while draw_end_screen:
+        mouse = pygame.mouse.get_pos()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 draw_end_screen = False
                 pygame.quit()
                 return -1
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                for b in buttons:
+                    if b.hover_button(mouse):
+                        main()
         screen.fill(colors["white"])
+        screen.blit(big_font.render(results[result], True, colors["black"]), (50, 100))
+        for b in buttons:
+            if b.hover_button(mouse):
+                pygame.draw.rect(screen, colors["orange"], pygame.Rect(b.position[0], b.position[1], b.height, b.width))
+            else:
+                pygame.draw.rect(screen, b.color, pygame.Rect(b.position[0], b.position[1], b.height, b.width))
+            screen.blit(font.render(b.text, True, colors["black"]), (b.position[0] + 32, b.position[1] + 15))
+
         pygame.display.update()
 
 
@@ -163,9 +180,9 @@ def main():
         result = play_vs_computer("b", screen, gs)
     elif option == 2:
         result = two_players_mode(screen, gs)
+    time.sleep(0.5)
     game_end_screen(screen, gs, result)
-
-
+    pygame.quit()
 
 
 def engine_move_to_Move(engine_move, gs):
@@ -179,7 +196,7 @@ def play_vs_computer(computer_color, screen, gs):
     possible_piece_moves = []
     valid_moves = gs.get_valid_moves()
     move_made = False
-    engine.set_elo_rating(1200)
+    engine.set_elo_rating(700)
     while run:
         if gs.checkmate:
             run = False
@@ -189,10 +206,11 @@ def play_vs_computer(computer_color, screen, gs):
                 return 1
         if gs.stalemate or gs.pawn_or_captures > 49:
             run = False
-            pygame.quit()
             return -1
         if gs.turn_color() == computer_color:
-            computer_move = engine_move_to_Move(engine.get_best_move(), gs)
+            m = engine.get_best_move()
+            computer_move = engine_move_to_Move(m, gs)
+            print(m)
             gs.make_move(valid_moves[valid_moves.index(computer_move)])
             valid_moves = gs.get_valid_moves()
         for event in pygame.event.get():

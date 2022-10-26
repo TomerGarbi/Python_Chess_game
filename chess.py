@@ -370,6 +370,7 @@ class GameState:
         fen += str(self.pawn_or_captures) + " " + str(len(self.move_log) // 2 + 1)
         return fen
 
+
     def get_piece_moves(self, r, c, valid_moves):
         moves = []
         for move in valid_moves:
