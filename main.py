@@ -385,7 +385,8 @@ def two_players_mode(screen, gs):
                     square_selected = ()
                     move_made = True
         if move_made:
-            play_sound(gs, gs.move_log[-1])
+            if len(gs.move_log) > 0:
+                play_sound(gs, gs.move_log[-1])
             valid_moves = gs.get_valid_moves()
             fen = gs.FEN()
             engine.set_fen_position(fen)
